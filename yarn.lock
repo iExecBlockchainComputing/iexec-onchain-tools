@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-iexec-poco@^3.0.28:
-  version "3.0.28"
-  resolved "https://registry.yarnpkg.com/iexec-poco/-/iexec-poco-3.0.28.tgz#3d43133f3a3e93d70316afd2f576dba7c87d1623"
-  integrity sha512-Nb+nUHWwOUcluX/v7FQK0Jd1s5VcWCIxPjss2T5i7WJIe/4aqH0/hWsWJfcbmT7pf9IgxiV5fWnsCK2Ce6zC6Q==
+iexec-poco@^3.0.29:
+  version "3.0.29"
+  resolved "https://registry.yarnpkg.com/iexec-poco/-/iexec-poco-3.0.29.tgz#e6c9c6d9c369f39cffd0b67c56b262892326e148"
+  integrity sha512-90xn8ofDaCr2msuUTe8w7Q1LkbxnQ2OA52t9wL9xbs+5VVuQRV2LxGTuLMtJb2191A2d4nB5mbZBJQhxpTVAzg==
   dependencies:
     openzeppelin-solidity "^2.2.0"
 
