@@ -1,0 +1,23 @@
+{
+	"name": "iexec-onchain-tools",
+	"version": "0.0.1",
+	"description": "",
+	"repository": {
+    "type": "git",
+    "url": "git+https://github.com/iExecBlockchainComputing/iexec-onchain-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/iExecBlockchainComputing/iexec-onchain-tools.git/issues"
+  },
+  "files": [
+    "/build",
+    "/contracts"
+  ],
+	"author": "iExec",
+	"license": "ISC",
+	"homepage": "https://github.com/iExecBlockchainComputing/iexec-onchain-tools.git#readme",
+  "dependencies": {
+    "iexec-poco": "^3.0.28",
+    "iexec-solidity": "^0.0.6"
+  }
+}
