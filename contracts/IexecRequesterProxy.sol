@@ -3,8 +3,9 @@ pragma experimental ABIEncoderV2;
 
 import "iexec-doracle-base/contracts/IexecInterface.sol";
 import "iexec-solidity/contracts/ERC20_Token/ERC20.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract IexecRequesterProxy is IexecInterface, ERC20
+contract IexecRequesterProxy is IexecInterface, ERC20, Ownable
 {
 	IERC20 public baseToken;
 
@@ -14,6 +15,7 @@ contract IexecRequesterProxy is IexecInterface, ERC20
 	struct OrderDetail
 	{
 		uint256 maxprice;
+		uint256 volume;
 		address requester;
 	}
 	mapping(bytes32 => OrderDetail) m_orderDetails;
@@ -21,9 +23,18 @@ contract IexecRequesterProxy is IexecInterface, ERC20
 
 	// Use _iexecHubAddr to force use of custom iexechub, leave 0x0 for autodetect
 	constructor(address _iexecHubAddr)
-	public IexecInterface(_iexecHubAddr)
+		public IexecInterface(_iexecHubAddr)
 	{
 		baseToken = iexecClerk.token();
+	}
+
+	function destructor(address payable beneficiary)
+		external onlyOwner
+	{
+		// require(iexecClerk.viewAccount(address(this)).locked == 0); // Needed ?
+		iexecClerk.withdraw(iexecClerk.viewAccount(address(this)).stake);
+		baseToken.transfer(beneficiary, baseToken.balanceOf(address(this)));
+		selfdestruct(beneficiary);
 	}
 
 	function deposit(uint256 _amount)
@@ -38,10 +49,8 @@ contract IexecRequesterProxy is IexecInterface, ERC20
 	}
 
 	function depositFor(uint256 _amount, address _target)
-		public returns (bool)
+		external returns (bool)
 	{
-		require(_target != address(0));
-
 		require(baseToken.transferFrom(msg.sender, address(this), _amount));
 		require(baseToken.approve(address(iexecClerk), _amount));
 		require(iexecClerk.deposit(_amount));
@@ -57,7 +66,8 @@ contract IexecRequesterProxy is IexecInterface, ERC20
 		uint256 maxprice = _order.appmaxprice
 			.add(_order.datasetmaxprice)
 			.add(_order.workerpoolmaxprice);
-		uint256 lock = maxprice.mul(_order.volume);
+		uint256 lock = maxprice
+			.mul(_order.volume);
 
 		// lock price from requester
 		_transfer(msg.sender, address(this), lock);
@@ -68,6 +78,7 @@ contract IexecRequesterProxy is IexecInterface, ERC20
 
 		require(rodetails.requester == address(0));
 		rodetails.maxprice  = maxprice;
+		rodetails.volume    = _order.volume;
 		rodetails.requester = msg.sender;
 
 		// set requester
@@ -89,8 +100,8 @@ contract IexecRequesterProxy is IexecInterface, ERC20
 		require(msg.sender == rodetails.requester);
 
 		// compute the non consumed part of the order
-		uint256 consumed = iexecClerk.viewConsumed(rohash);
-		uint256 refund   = rodetails.maxprice.mul(_order.volume.sub(consumed));
+		uint256 canceled = rodetails.volume.sub(iexecClerk.viewConsumed(rohash));
+		uint256 refund   = rodetails.maxprice.mul(canceled);
 
 		// refund the non consumed part
 		_transfer(address(this), rodetails.requester, refund);
