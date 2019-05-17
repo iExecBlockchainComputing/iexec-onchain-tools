@@ -50,20 +50,20 @@ contract IexecRequesterProxy is IexecInterface, ERC20
 		return true;
 	}
 
-	function submit(IexecODBLibOrders.RequestOrder memory order)
+	function submit(IexecODBLibOrders.RequestOrder memory _order)
 		public
 	{
 		// compute order price and total necessary lock.
-		uint256 maxprice = order.appmaxprice
-			.add(order.datasetmaxprice)
-			.add(order.workerpoolmaxprice);
-		uint256 lock = maxprice.mul(order.volume);
+		uint256 maxprice = _order.appmaxprice
+			.add(_order.datasetmaxprice)
+			.add(_order.workerpoolmaxprice);
+		uint256 lock = maxprice.mul(_order.volume);
 
 		// lock price from requester
 		_transfer(msg.sender, address(this), lock);
 
 		// record details for refund of unspent tokens
-		bytes32 requestorderHash = order.hash().toEthTypedStructHash(iexecClerk.EIP712DOMAIN_SEPARATOR());
+		bytes32 requestorderHash = _order.hash().toEthTypedStructHash(iexecClerk.EIP712DOMAIN_SEPARATOR());
 
 		OrderDetail storage od = m_orderDetails[requestorderHash];
 		require(od.requester == address(0));
@@ -71,49 +71,61 @@ contract IexecRequesterProxy is IexecInterface, ERC20
 		od.requester = msg.sender;
 
 		// set requester
-		order.requester = address(this);
+		_order.requester = address(this);
 
 		// sign and broadcast
-		iexecClerk.signRequestOrder(order);
-		iexecClerk.broadcastRequestOrder(order);
+		require(iexecClerk.signRequestOrder(_order));
+		iexecClerk.broadcastRequestOrder(_order);
 	}
 
-	function cancel(IexecODBLibOrders.RequestOrder memory order)
+	function cancel(IexecODBLibOrders.RequestOrder memory _order)
 		public
 	{
-		bytes32 requestorderHash = order.hash().toEthTypedStructHash(iexecClerk.EIP712DOMAIN_SEPARATOR());
+		// get order details
+		bytes32 requestorderHash = _order.hash().toEthTypedStructHash(iexecClerk.EIP712DOMAIN_SEPARATOR());
 		OrderDetail storage od = m_orderDetails[requestorderHash];
 
+		// only requester can cancel
 		require(msg.sender == od.requester);
 
+		// compute the non consumed part of the order
 		uint256 consumed = iexecClerk.viewConsumed(requestorderHash);
-		uint256 refund   = od.maxprice.mul(order.volume.sub(consumed));
+		uint256 refund   = od.maxprice.mul(_order.volume.sub(consumed));
 
+		// refund the non consumed part
 		_transfer(address(this), od.requester, refund);
-		iexecClerk.cancelRequestOrder(order);
+
+		// cancel the order
+		require(iexecClerk.cancelRequestOrder(_order));
 	}
 
-	function unlockUnspent(bytes32 requestorderhash, uint256 firstTask)
+	function unlockUnspent(bytes32 _requestorderhash, uint256 _botFirst)
 		public
 	{
-		bytes32 dealid = keccak256(abi.encodePacked(requestorderhash, firstTask));
+		// compute the dealid
+		bytes32 dealid = keccak256(abi.encodePacked(_requestorderhash, _botFirst));
 
-		// only refund the difference once per deal
-		require(!m_dealUnlocked[dealid]);
+		// only refund the difference one time
+		require(!m_dealUnlocked[dealid], "deal-already-processed");
 		m_dealUnlocked[dealid] = true;
 
+		// get deal and order details
 		IexecODBLibCore.Deal memory  deal = iexecClerk.viewDeal(dealid);
-		OrderDetail          storage od   = m_orderDetails[requestorderhash];
+		OrderDetail          storage od   = m_orderDetails[_requestorderhash];
 
+		// compute the price actually paid
 		uint256 actualprice = deal.app.price
 			.add(deal.dataset.price)
 			.add(deal.workerpool.price);
 
-		uint256 delta = actualprice
-			.sub(od.maxprice);
+		// compute the difference between the lock and the price paid
+		uint256 delta = od.maxprice
+			.sub(actualprice);
 
+		// refund the difference
 		_transfer(address(this), od.requester, delta.mul(deal.botSize));
-		_burn    (address(this), actualprice.mul(deal.botSize));
+		// burn the rest
+		_burn(address(this), actualprice.mul(deal.botSize));
 	}
 
 }
