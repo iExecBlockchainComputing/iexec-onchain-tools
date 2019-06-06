@@ -21,7 +21,7 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 		baseToken = iexecClerk.token();
 	}
 
-	function _iexecDoracleUpdateSettings(address _authorizedApp, address _authorizedDataset, address _authorizedWorkerpool)
+	function updateSettings(address _authorizedApp, address _authorizedDataset, address _authorizedWorkerpool)
 		external onlyOwner
 	{
 		authorizedApp        = _authorizedApp;
