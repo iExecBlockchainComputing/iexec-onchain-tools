@@ -5,21 +5,12 @@ import "iexec-doracle-base/contracts/IexecInterface.sol";
 import "iexec-solidity/contracts/ERC20_Token/ERC20.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract IexecRequesterProxy is IexecInterface, ERC20, Ownable
+contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownable
 {
-	IERC20 public baseToken;
-
-	using IexecODBLibOrders for bytes32;
-	using IexecODBLibOrders for IexecODBLibOrders.RequestOrder;
-
-	struct OrderDetail
-	{
-		uint256 maxprice;
-		uint256 volume;
-		address requester;
-	}
-	mapping(bytes32 => OrderDetail) m_orderDetails;
-	mapping(bytes32 =>        bool) m_unlocked;
+	IERC20  public baseToken;
+	address public authorizedApp;
+	address public authorizedDataset;
+	address public authorizedWorkerpool;
 
 	// Use _iexecHubAddr to force use of custom iexechub, leave 0x0 for autodetect
 	constructor(address _iexecHubAddr)
@@ -28,17 +19,25 @@ contract IexecRequesterProxy is IexecInterface, ERC20, Ownable
 		baseToken = iexecClerk.token();
 	}
 
+	function _iexecDoracleUpdateSettings(address _authorizedApp, address _authorizedDataset, address _authorizedWorkerpool)
+		external onlyOwner
+	{
+		authorizedApp        = _authorizedApp;
+		authorizedDataset    = _authorizedDataset;
+		authorizedWorkerpool = _authorizedWorkerpool;
+	}
+
 	function destructor(address payable beneficiary)
 		external onlyOwner
 	{
-		// require(iexecClerk.viewAccount(address(this)).locked == 0); // Needed ?
+		require(iexecClerk.viewAccount(address(this)).locked == 0); // Needed to ensure no tokens are burned
 		iexecClerk.withdraw(iexecClerk.viewAccount(address(this)).stake);
 		baseToken.transfer(beneficiary, baseToken.balanceOf(address(this)));
 		selfdestruct(beneficiary);
 	}
 
 	function deposit(uint256 _amount)
-		external returns (bool)
+		external onlyOwner returns (bool)
 	{
 		require(baseToken.transferFrom(msg.sender, address(this), _amount));
 		require(baseToken.approve(address(iexecClerk), _amount));
@@ -49,7 +48,7 @@ contract IexecRequesterProxy is IexecInterface, ERC20, Ownable
 	}
 
 	function depositFor(uint256 _amount, address _target)
-		external returns (bool)
+		external onlyOwner returns (bool)
 	{
 		require(baseToken.transferFrom(msg.sender, address(this), _amount));
 		require(baseToken.approve(address(iexecClerk), _amount));
@@ -59,112 +58,38 @@ contract IexecRequesterProxy is IexecInterface, ERC20, Ownable
 		return true;
 	}
 
-	function submit(IexecODBLibOrders.RequestOrder memory _order)
-		public
+	function matchOrders(
+		IexecODBLibOrders.AppOrder        memory _apporder,
+		IexecODBLibOrders.DatasetOrder    memory _datasetorder,
+		IexecODBLibOrders.WorkerpoolOrder memory _workerpoolorder,
+		IexecODBLibOrders.RequestOrder    memory _requestorder)
+	public returns (bytes32)
 	{
-		// compute order price and total necessary lock.
-		uint256 maxprice = _order.appmaxprice
-			.add(_order.datasetmaxprice)
-			.add(_order.workerpoolmaxprice);
-		uint256 lock = maxprice
-			.mul(_order.volume);
+		// check whitelist
+		require(authorizedApp        == address(0) || checkIdentity(authorizedApp,        _apporder.app,               iexecClerk.GROUPMEMBER_PURPOSE()), "unauthorized-app");
+		require(authorizedDataset    == address(0) || checkIdentity(authorizedDataset,    _datasetorder.dataset,       iexecClerk.GROUPMEMBER_PURPOSE()), "unauthorized-dataset");
+		require(authorizedWorkerpool == address(0) || checkIdentity(authorizedWorkerpool, _workerpoolorder.workerpool, iexecClerk.GROUPMEMBER_PURPOSE()), "unauthorized-workerpool");
 
-		// lock price from requester
-		_transfer(msg.sender, address(this), lock);
+		// force requester
+		_requestorder.requester = address(this);
 
-		// record details for refund of unspent tokens
-		bytes32             rohash    = _order.hash().toEthTypedStructHash(iexecClerk.EIP712DOMAIN_SEPARATOR());
-		OrderDetail storage rodetails = m_orderDetails[rohash];
+		// sign order
+		require(iexecClerk.signRequestOrder(_requestorder));
 
-		require(rodetails.requester == address(0));
-		rodetails.maxprice  = maxprice;
-		rodetails.volume    = _order.volume;
-		rodetails.requester = msg.sender;
+		// match and retreive deal
+		bytes32 dealid = iexecClerk.signRequestOrder(_requestorder);
+		IexecODBLibCore.Deal memory deal = iexecClerk.viewDeal(dealid);
 
-		// set requester
-		_order.requester = address(this);
+		// pay for deal
+		uint256 dealprice = deal.app.add(deal.dataset).add(deal.workerpool).mul(deal.botSize);
+		_transfer(msg.sender, address(this), dealprice);
 
-		// sign and broadcast
-		require(iexecClerk.signRequestOrder(_order));
-		iexecClerk.broadcastRequestOrder(_order);
+		// prevent extra usage of requestorder
+		if (deal.botSize < _requestorder.volume)
+		{
+			iexecClerk.cancelOrder(_requestorder);
+		}
+
+		return dealid;
 	}
-
-	function cancel(IexecODBLibOrders.RequestOrder memory _order)
-		public
-	{
-		// get order details
-		bytes32            rohash    = _order.hash().toEthTypedStructHash(iexecClerk.EIP712DOMAIN_SEPARATOR());
-		OrderDetail memory rodetails = m_orderDetails[rohash];
-
-		// only requester can cancel
-		require(msg.sender == rodetails.requester);
-
-		// compute the non consumed part of the order
-		uint256 canceled = rodetails.volume.sub(iexecClerk.viewConsumed(rohash));
-		uint256 refund   = rodetails.maxprice.mul(canceled);
-
-		// refund the non consumed part
-		_transfer(address(this), rodetails.requester, refund);
-
-		// cancel the order
-		require(iexecClerk.cancelRequestOrder(_order));
-	}
-
-	function unlockClaim(bytes32 _rohash, uint256 _botFirst, uint256 _idx)
-		public
-	{
-		// compute the dealid & taskid
-		bytes32 dealid = keccak256(abi.encodePacked(_rohash, _botFirst));
-		bytes32 taskid = keccak256(abi.encodePacked(dealid, _idx));
-
-		// only refund failled tasks one time
-		require(!m_unlocked[taskid], "task-already-claimed");
-		m_unlocked[taskid] = true;
-
-		// get deal and order details
-		OrderDetail          memory rodetails = m_orderDetails[_rohash];
-		IexecODBLibCore.Deal memory deal      = iexecClerk.viewDeal(dealid);
-		IexecODBLibCore.Task memory task      = iexecHub.viewTask(taskid);
-
-		// check that the claim is valid
-		require(task.status == IexecODBLibCore.TaskStatusEnum.FAILLED, "status-not-failled");
-
-		// compute the price actually paid
-		uint256 actualprice = deal.app.price
-			.add(deal.dataset.price)
-			.add(deal.workerpool.price);
-
-		// refund the difference
-		_transfer(address(this), rodetails.requester, actualprice); // task <=> volume == 1
-	}
-
-	function unlockUnspent(bytes32 _rohash, uint256 _botFirst)
-		public
-	{
-		// compute the dealid
-		bytes32 dealid = keccak256(abi.encodePacked(_rohash, _botFirst));
-
-		// only refund the difference one time
-		require(!m_unlocked[dealid], "deal-already-processed");
-		m_unlocked[dealid] = true;
-
-		// get deal and order details
-		OrderDetail          memory rodetails = m_orderDetails[_rohash];
-		IexecODBLibCore.Deal memory deal      = iexecClerk.viewDeal(dealid);
-
-		// compute the price actually paid
-		uint256 actualprice = deal.app.price
-			.add(deal.dataset.price)
-			.add(deal.workerpool.price);
-
-		// compute the difference between the lock and the price paid
-		uint256 delta = rodetails.maxprice
-			.sub(actualprice);
-
-		// refund the difference
-		_transfer(address(this), rodetails.requester, delta.mul(deal.botSize));
-		// burn the rest
-		_burn(address(this), actualprice.mul(deal.botSize));
-	}
-
 }
