@@ -60,6 +60,13 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 		return true;
 	}
 
+	function reclaim()
+		external onlyOwner returns (bool)
+	{
+		_mint(owner(), iexecClerk.viewAccount(address(this)).stake.sub(totalSupply()));
+		return true;
+	}
+
 	function matchOrders(
 		IexecODBLibOrders.AppOrder        memory _apporder,
 		IexecODBLibOrders.DatasetOrder    memory _datasetorder,
@@ -84,7 +91,7 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 
 		// pay for deal
 		uint256 dealprice = deal.app.price.add(deal.dataset.price).add(deal.workerpool.price).mul(deal.botSize);
-		_transfer(msg.sender, address(this), dealprice);
+		_burn(msg.sender, dealprice);
 
 		// prevent extra usage of requestorder
 		if (deal.botSize < _requestorder.volume)
