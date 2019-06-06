@@ -63,7 +63,7 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 	function reclaim()
 		external onlyOwner returns (bool)
 	{
-		_mint(owner(), iexecClerk.viewAccount(address(this)).stake.sub(totalSupply()));
+		_mint(msg.sender, iexecClerk.viewAccount(address(this)).stake.sub(totalSupply()));
 		return true;
 	}
 
