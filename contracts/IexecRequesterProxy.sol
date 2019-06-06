@@ -7,6 +7,8 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownable
 {
+	using SafeMath for uint256;
+
 	IERC20  public baseToken;
 	address public authorizedApp;
 	address public authorizedDataset;
@@ -77,17 +79,17 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 		require(iexecClerk.signRequestOrder(_requestorder));
 
 		// match and retreive deal
-		bytes32 dealid = iexecClerk.signRequestOrder(_requestorder);
+		bytes32 dealid = iexecClerk.matchOrders(_apporder, _datasetorder, _workerpoolorder, _requestorder);
 		IexecODBLibCore.Deal memory deal = iexecClerk.viewDeal(dealid);
 
 		// pay for deal
-		uint256 dealprice = deal.app.add(deal.dataset).add(deal.workerpool).mul(deal.botSize);
+		uint256 dealprice = deal.app.price.add(deal.dataset.price).add(deal.workerpool.price).mul(deal.botSize);
 		_transfer(msg.sender, address(this), dealprice);
 
 		// prevent extra usage of requestorder
 		if (deal.botSize < _requestorder.volume)
 		{
-			iexecClerk.cancelOrder(_requestorder);
+			iexecClerk.cancelRequestOrder(_requestorder);
 		}
 
 		return dealid;

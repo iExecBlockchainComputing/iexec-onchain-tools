@@ -11,7 +11,7 @@ library DataStores
 	function size(ASet storage self)
 		internal view returns (uint256)
 	{
-		return self.content.length:
+		return self.content.length;
 	}
 
 	function contains(ASet storage self, address entry)
@@ -65,7 +65,7 @@ library DataStores
 
 
 
-contract WorkerpoolManager
+contract WorkerpoolManager // is ERC725 should add proxying mechanism to manage tokens?
 {
 	using DataStores for DataStores.ASet;
 
@@ -116,7 +116,7 @@ contract WorkerpoolManager
 	{
 		// TODO: Make it dynamic based on m_workers.size()
 		// → needs an insentive to force workers to unregister
-		return 4; // 4 → difficultyMask value (accept with proba 2**-4)
+		return 4; // 4 → accept with proba 2**-4 (0.0625)
 	}
 
 	function mask(uint256 i)
@@ -135,7 +135,7 @@ contract WorkerpoolManager
 		// worker must be registered
 		require(isRegistered(worker));
 		// worker selection
-		require(keccak256(abi.encodePacked(worker, taskid)) & mask(difficulty()) == bytes32(0));
+		require(keccak256(abi.encodePacked(worker, taskid)) & mask(difficulty()) == bytes32(0)); // difficulty → difficulty.div(trust.log()) ?
 		// must be registered for a certain time ?
 		// m_registrationDate[worker] + 1 hour < now;
 		// m_registrationDate[worker] < deal.startTime;
