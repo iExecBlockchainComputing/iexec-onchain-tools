@@ -14,6 +14,8 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 	address public authorizedDataset;
 	address public authorizedWorkerpool;
 
+	event DealRequested(bytes32 dealid);
+
 	// Use _iexecHubAddr to force use of custom iexechub, leave 0x0 for autodetect
 	constructor(address _iexecHubAddr)
 		public IexecInterface(_iexecHubAddr)
@@ -98,6 +100,8 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 		{
 			iexecClerk.cancelRequestOrder(_requestorder);
 		}
+
+		emit DealRequested(dealid);
 
 		return dealid;
 	}

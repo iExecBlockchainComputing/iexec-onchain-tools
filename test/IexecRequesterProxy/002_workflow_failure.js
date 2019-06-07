@@ -172,7 +172,7 @@ contract('IexecRequesterProxy', async (accounts) => {
 		assert.isBelow(txsMined[6].receipt.gasUsed, constants.AMOUNT_GAS_PROVIDED, "should not use all gas");
 	});
 
-	it("[Setup] App & Workerpool deployment", async () => {
+	it("App & Workerpool deployment", async () => {
 		// CREATEAPP
 		txMined = await AppRegistryInstance.createApp(
 			appProvider,
@@ -201,16 +201,32 @@ contract('IexecRequesterProxy', async (accounts) => {
 		assert.isBelow(txMined.receipt.gasUsed, constants.AMOUNT_GAS_PROVIDED, "should not use all gas");
 	});
 
-	it("[Setup] Proxy Deposit", async () => {
+	it("Proxy Deposit", async () => {
 		await RLCInstance.approve(IexecRequesterProxyInstance.address, 1000000, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED }),
-		await IexecRequesterProxyInstance.depositFor(1000000, user, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED })
-
-		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0                 );
-		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ "1000000", "0" ]);
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         1000000           );
+		await IexecRequesterProxyInstance.deposit(1000000, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED })
 	});
 
-	it("[Setup] Orders", async () => {
+	it("Check balances", async () => {
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                  "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   1000000,            "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         0,                  "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           1000000,            "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ "1000000", "0" ], "check proxy's account on clerk");
+	});
+
+	it("Proxy Deposit", async () => {
+		await IexecRequesterProxyInstance.transfer(user, 100000, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED })
+	});
+
+	it("Check balances", async () => {
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                  "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   900000,             "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         100000,             "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           1000000,            "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ "1000000", "0" ], "check proxy's account on clerk");
+	});
+
+	it("Orders", async () => {
 		// Orders
 		apporder = odbtools.signAppOrder(
 			{
@@ -261,98 +277,68 @@ contract('IexecRequesterProxy', async (accounts) => {
 			salt:               web3.utils.randomHex(32),
 			sign:               constants.NULL.SIGNATURE,
 		};
-
-		const tx        = await IexecRequesterProxyInstance.submit(requestorder, { from: user, gas: constants.AMOUNT_GAS_PROVIDED });
-		const [ evABI ] = IexecClerkInstance.abi.filter(o => o.name === 'BroadcastRequestOrder' && o.type == 'event');
-		const [ ev    ] = tx.receipt.rawLogs.filter(l => l.topics.includes(evABI.signature));
-		const decoded   = web3.eth.abi.decodeLog(evABI.inputs, ev.data, ev.topics);
-
-		// assert.equal(decoded.)
 	});
 
-	it("[Setup] Proxy Details", async () => {
-		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),                 0                 );
-		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address),        [ "1000000", "0" ]);
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                                998000            ); // 1000000-2000
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(IexecRequesterProxyInstance.address),   2000            ); // 1000000-2000
+	it("Check balances", async () => {
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                  "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   900000,             "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         100000,             "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           1000000,            "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ "1000000", "0" ], "check proxy's account on clerk");
 	});
 
-	it("[Setup] Deal", async () => {
-		// Market
-		txMined = await IexecClerkInstance.matchOrders(apporder, constants.NULL.DATAORDER, workerpoolorder, requestorder, { from: user, gasLimit: constants.AMOUNT_GAS_PROVIDED });
+	it("Deal", async () => {
+		// Deal on proxy
+		txMined = await IexecRequesterProxyInstance.matchOrders(apporder, constants.NULL.DATAORDER, workerpoolorder, requestorder, { from: user, gasLimit: constants.AMOUNT_GAS_PROVIDED });
 		assert.isBelow(txMined.receipt.gasUsed, constants.AMOUNT_GAS_PROVIDED, "should not use all gas");
 		totalgas += txMined.receipt.gasUsed;
 
-		deal = extractEvents(txMined, IexecClerkInstance.address, "OrdersMatched")[0].args.dealid;
+		deal = extractEvents(txMined, IexecRequesterProxyInstance.address, "DealRequested")[0].args.dealid;
 	});
 
-	it("[Setup] Proxy Details", async () => {
-		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),                 0                  );
-		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address),        [ "999890", "110" ]);
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                                998000             ); // 1000000-2000
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(IexecRequesterProxyInstance.address), 2000               ); // 1000000-2000
+	it("Check balances", async () => {
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                   "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   900000,              "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         99890,               "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           999890,              "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ "999890", "110" ], "check proxy's account on clerk");
 	});
 
-	it("unlockUnspent", async () => {
-		await IexecRequesterProxyInstance.unlockUnspent(
-			odbtools.RequestOrderTypedStructHash(requestorder),
-			0,
-			{ from: user, gas: constants.AMOUNT_GAS_PROVIDED });
-	});
-
-	it("[Setup] Proxy Details", async () => {
-		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),                 0                  );
-		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address),        [ "999890", "110" ]);
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                                999890             ); // 1000000-2000
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(IexecRequesterProxyInstance.address), 0                  ); // 1000000-2000
-	});
-
-	it("[setup] Initialization", async () => {
+	it("Initialization", async () => {
 		task = extractEvents(await IexecHubInstance.initialize(deal, 0, { from: scheduler, gas: constants.AMOUNT_GAS_PROVIDED }), IexecHubInstance.address, "TaskInitialize")[0].args.taskid;
 	});
 
-	function sendContribution(authorization, results)
-	{
-		return IexecHubInstance.contribute(
-			authorization.taskid,                                   // task (authorization)
-			results.hash,                                           // common    (result)
-			results.seal,                                           // unique    (result)
-			authorization.enclave,                                  // address   (enclave)
-			results.sign ? results.sign : constants.NULL.SIGNATURE, // signature (enclave)
-			authorization.sign,                                     // signature (authorization)
-			{ from: authorization.worker, gasLimit: constants.AMOUNT_GAS_PROVIDED }
-		);
-	}
-
-	it("[setup] Contribute", async () => {
-		for (w of workers)
-		{
-			txMined = await sendContribution(
-				await odbtools.signAuthorization({ worker: w.address, taskid: task, enclave: w.enclave }, scheduler),
-				await (w.enclave == constants.NULL.ADDRESS ? x => x : x => odbtools.signContribution(x, w.enclave))(odbtools.sealByteResult(task, w.determinism, w.address))
-			);
-			totalgas += txMined.receipt.gasUsed;
-		}
-	});
-
-	it("[setup] Reveal", async () => {
-		for (w of workers)
-		{
-			txMined = await IexecHubInstance.reveal(task, odbtools.hashByteResult(task, w.determinism).digest, { from: w.address, gas: constants.AMOUNT_GAS_PROVIDED });
-			totalgas += txMined.receipt.gasUsed;
-		}
+	it("clock fast forward", async () => {
+		target = Number((await IexecHubInstance.viewTask(task)).finalDeadline);
+		await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_increaseTime", params: [ target - (await web3.eth.getBlock("latest")).timestamp ], id: 0 }, () => {});
 	});
 
 	it("Finalize", async () => {
-		txMined = await IexecHubInstance.finalize(task, result, { from: scheduler, gas: constants.AMOUNT_GAS_PROVIDED });
+		txMined = await IexecHubInstance.claim(task, { from: user, gas: constants.AMOUNT_GAS_PROVIDED });
 		assert.isBelow(txMined.receipt.gasUsed, constants.AMOUNT_GAS_PROVIDED, "should not use all gas");
-		totalgas += txMined.receipt.gasUsed;
-		events = extractEvents(txMined, IexecHubInstance.address, "TaskFinalize");
-		assert.equal(events[0].args.taskid,  task, "check taskid");
-		assert.equal(events[0].args.results, result, "check consensus (results)");
+		events = extractEvents(txMined, IexecHubInstance.address, "TaskClaimed");
+		assert.equal(events[0].args.taskid, task, "check taskid");
 	});
 
+	it("Check balances", async () => {
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                  "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   900000,             "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         99890,              "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           999890,             "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ "1000000", "0" ], "check proxy's account on clerk");
+	});
 
+	it("Check balances", async () => {
+		await IexecRequesterProxyInstance.reclaim({ from: iexecAdmin });
+	});
+
+	it("Check balances", async () => {
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                  "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   900110,             "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         99890,              "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           1000000,            "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ "1000000", "0" ], "check proxy's account on clerk");
+	});
 
 	it("Logs", async () => {
 		console.log("total gas used:", totalgas)
