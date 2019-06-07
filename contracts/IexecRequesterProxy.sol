@@ -23,15 +23,6 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 		baseToken = iexecClerk.token();
 	}
 
-	// authorizaton settings
-	function updateSettings(address _authorizedApp, address _authorizedDataset, address _authorizedWorkerpool)
-		external onlyOwner
-	{
-		authorizedApp        = _authorizedApp;
-		authorizedDataset    = _authorizedDataset;
-		authorizedWorkerpool = _authorizedWorkerpool;
-	}
-
 	// match orders
 	function matchOrders(
 		IexecODBLibOrders.AppOrder        memory _apporder,
@@ -71,6 +62,15 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 	}
 
 	// admin control
+	function updateSettings(address _authorizedApp, address _authorizedDataset, address _authorizedWorkerpool)
+		external onlyOwner
+	{
+		authorizedApp        = _authorizedApp;
+		authorizedDataset    = _authorizedDataset;
+		authorizedWorkerpool = _authorizedWorkerpool;
+	}
+
+	// admin token operations
 	function transferAdmin(address _from, address _to, uint256 _amount)
 		external onlyOwner returns (bool)
 	{
@@ -78,7 +78,6 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 		return false;
 	}
 
-	// in-out fund operations
 	function deposit(uint256 _amount)
 		external onlyOwner returns (bool)
 	{
