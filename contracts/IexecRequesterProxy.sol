@@ -23,6 +23,7 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 		baseToken = iexecClerk.token();
 	}
 
+	// authorizaton settings
 	function updateSettings(address _authorizedApp, address _authorizedDataset, address _authorizedWorkerpool)
 		external onlyOwner
 	{
@@ -31,44 +32,7 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 		authorizedWorkerpool = _authorizedWorkerpool;
 	}
 
-	function destructor(address payable beneficiary)
-		external onlyOwner
-	{
-		require(iexecClerk.viewAccount(address(this)).locked == 0); // Needed to ensure no tokens are burned
-		iexecClerk.withdraw(iexecClerk.viewAccount(address(this)).stake);
-		baseToken.transfer(beneficiary, baseToken.balanceOf(address(this)));
-		selfdestruct(beneficiary);
-	}
-
-	function deposit(uint256 _amount)
-		external onlyOwner returns (bool)
-	{
-		require(baseToken.transferFrom(msg.sender, address(this), _amount));
-		require(baseToken.approve(address(iexecClerk), _amount));
-		require(iexecClerk.deposit(_amount));
-
-		_mint(msg.sender, _amount);
-		return true;
-	}
-
-	function depositFor(uint256 _amount, address _target)
-		external onlyOwner returns (bool)
-	{
-		require(baseToken.transferFrom(msg.sender, address(this), _amount));
-		require(baseToken.approve(address(iexecClerk), _amount));
-		require(iexecClerk.deposit(_amount));
-
-		_mint(_target, _amount);
-		return true;
-	}
-
-	function reclaim()
-		external onlyOwner returns (bool)
-	{
-		_mint(msg.sender, iexecClerk.viewAccount(address(this)).stake.sub(totalSupply()));
-		return true;
-	}
-
+	// match orders
 	function matchOrders(
 		IexecODBLibOrders.AppOrder        memory _apporder,
 		IexecODBLibOrders.DatasetOrder    memory _datasetorder,
@@ -105,4 +69,81 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 
 		return dealid;
 	}
+
+	// admin control
+	function transferAdmin(address _from, address _to, uint256 _amount)
+		external onlyOwner returns (bool)
+	{
+		_transfer(_from, _to, _amount);
+		return false;
+	}
+
+	// in-out fund operations
+	function deposit(uint256 _amount)
+		external onlyOwner returns (bool)
+	{
+		_deposit(msg.sender, _amount);
+		_mint(msg.sender, _amount);
+		return true;
+	}
+
+	function depositFor(uint256 _amount, address _target)
+		external onlyOwner returns (bool)
+	{
+		_deposit(msg.sender, _amount);
+		_mint(_target, _amount);
+		return true;
+	}
+
+	function withdraw(uint256 _amount)
+		external onlyOwner returns (bool)
+	{
+		_burn(msg.sender, _amount);
+		_withdraw(msg.sender, _amount);
+		return true;
+	}
+
+	function withdrawFrom(uint256 _amount, address _target)
+		external onlyOwner returns (bool)
+	{
+		_burn(_target, _amount);
+		_withdraw(msg.sender, _amount);
+		return true;
+	}
+
+	// reclaim locked funds
+	function reclaim()
+		external onlyOwner returns (bool)
+	{
+		_mint(msg.sender, iexecClerk.viewAccount(address(this)).stake.sub(totalSupply()));
+		return true;
+	}
+
+	// destructor
+	function destructor(address payable beneficiary)
+		external onlyOwner
+	{
+		require(iexecClerk.viewAccount(address(this)).locked == 0); // Needed to ensure no tokens are burned
+		// don't use withdraw (or force reclaim first)
+		iexecClerk.withdraw(iexecClerk.viewAccount(address(this)).stake);
+		baseToken.transfer(beneficiary, baseToken.balanceOf(address(this)));
+		selfdestruct(beneficiary);
+	}
+
+	// internal methods
+	function _deposit(address _from, uint256 _amount)
+		internal
+	{
+		require(baseToken.transferFrom(_from, address(this), _amount));
+		require(baseToken.approve(address(iexecClerk), _amount));
+		require(iexecClerk.deposit(_amount));
+	}
+
+	function _withdraw(address _to, uint256 _amount)
+		internal
+	{
+		iexecClerk.withdraw(_amount);
+		baseToken.transfer(_to, _amount);
+	}
+
 }
