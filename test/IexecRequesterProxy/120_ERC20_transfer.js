@@ -20,7 +20,7 @@ function extractEvents(txMined, address, name)
 	return txMined.logs.filter((ev) => { return ev.address == address && ev.event == name });
 }
 
-contract('IexecRequesterProxy - Withdraw', async (accounts) => {
+contract('IexecRequesterProxy - Transfer', async (accounts) => {
 
 	assert.isAtLeast(accounts.length, 10, "should have at least 10 accounts");
 	let iexecAdmin      = accounts[0];
@@ -63,10 +63,10 @@ contract('IexecRequesterProxy - Withdraw', async (accounts) => {
 		await IexecRequesterProxyInstance.depositFor(rlc_deposit, user,       { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED });
 	});
 
-	it("Proxy Withdraw - success", async () => {
-		let rlc_before   = await RLCInstance.balanceOf(iexecAdmin);
-		let rlc_withdraw = rlc_deposit.div(web3.utils.toBN(10));
-		let _2           = web3.utils.toBN(2);
+	it("Proxy Transfer - success admin → user", async () => {
+		let rlc_before = await RLCInstance.balanceOf(iexecAdmin);
+		let rlc_move   = rlc_deposit.div(web3.utils.toBN(10));
+		let _2         = web3.utils.toBN(2);
 
 		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
 		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
@@ -75,42 +75,20 @@ contract('IexecRequesterProxy - Withdraw', async (accounts) => {
 		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
 		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
 
-		await IexecRequesterProxyInstance.withdraw(rlc_withdraw, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED });
-
-		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   (rlc_before.add(rlc_withdraw)).toString(),                 "check admin's RLC balance");
-		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                                         "check proxy's RLC balance");
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   (rlc_deposit.sub(rlc_withdraw)).toString(),                "check admin's proxy balance");
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.toString(),                                    "check user's proxy balance");
-		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).sub(rlc_withdraw).toString(),          "check proxy total supply");
-		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).sub(rlc_withdraw).toString(), "0" ], "check proxy's account on clerk");
-	});
-
-	it("Proxy Withdraw - failure (too much)", async () => {
-		let rlc_before   = await RLCInstance.balanceOf(iexecAdmin);
-		let rlc_withdraw = rlc_deposit.mul(web3.utils.toBN(10)); // withdraw too much
-		let _2           = web3.utils.toBN(2);
+		await IexecRequesterProxyInstance.transfer(user, rlc_move, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED });
 
 		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
 		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.toString(),                  "check admin's proxy balance");
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.toString(),                  "check user's proxy balance");
-		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
-		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
-
-		await shouldFail.reverting(IexecRequesterProxyInstance.withdraw(rlc_withdraw, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED }));
-
-		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
-		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.toString(),                  "check admin's proxy balance");
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.toString(),                  "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.sub(rlc_move).toString(),    "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.add(rlc_move).toString(),    "check user's proxy balance");
 		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
 		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
 	});
 
-	it("Proxy Withdraw - failure (not authorized)", async () => {
-		let rlc_before   = await RLCInstance.balanceOf(iexecAdmin);
-		let rlc_withdraw = rlc_deposit.div(web3.utils.toBN(10));
-		let _2           = web3.utils.toBN(2);
+	it("Proxy Transfer - success user → admin", async () => {
+		let rlc_before = await RLCInstance.balanceOf(iexecAdmin);
+		let rlc_move   = rlc_deposit.div(web3.utils.toBN(10));
+		let _2         = web3.utils.toBN(2);
 
 		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
 		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
@@ -119,13 +97,58 @@ contract('IexecRequesterProxy - Withdraw', async (accounts) => {
 		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
 		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
 
-		await shouldFail.reverting(IexecRequesterProxyInstance.withdraw(rlc_withdraw, { from: user, gas: constants.AMOUNT_GAS_PROVIDED }));
+		await IexecRequesterProxyInstance.transfer(iexecAdmin, rlc_move, { from: user, gas: constants.AMOUNT_GAS_PROVIDED });
 
 		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
 		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.toString(),                  "check admin's proxy balance");
-		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.toString(),                  "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.add(rlc_move).toString(),    "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.sub(rlc_move).toString(),    "check user's proxy balance");
 		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
 		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
 	});
+
+	it("Proxy Transfer - failure (to address 0)", async () => {
+		let rlc_before = await RLCInstance.balanceOf(iexecAdmin);
+		let rlc_move   = rlc_deposit.div(web3.utils.toBN(10));
+		let _2         = web3.utils.toBN(2);
+
+		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.toString(),                  "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.toString(),                  "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
+
+		await shouldFail.reverting(IexecRequesterProxyInstance.transfer("0x0000000000000000000000000000000000000000", rlc_move, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED }));
+
+		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.toString(),                  "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.toString(),                  "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
+	});
+
+	it("Proxy Transfer - failure (too much)", async () => {
+		let rlc_before = await RLCInstance.balanceOf(iexecAdmin);
+		let rlc_move   = rlc_deposit.mul(web3.utils.toBN(10)); // too much
+		let _2         = web3.utils.toBN(2);
+
+		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.toString(),                  "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.toString(),                  "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
+
+		await shouldFail.reverting(IexecRequesterProxyInstance.transfer(user, rlc_move, { from: iexecAdmin, gas: constants.AMOUNT_GAS_PROVIDED }));
+
+		assert.equal    (await RLCInstance.balanceOf(iexecAdmin),                                   rlc_before.toString(),                   "check admin's RLC balance");
+		assert.equal    (await RLCInstance.balanceOf(IexecRequesterProxyInstance.address),          0,                                       "check proxy's RLC balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(user),                         rlc_deposit.toString(),                  "check user's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.balanceOf(iexecAdmin),                   rlc_deposit.toString(),                  "check admin's proxy balance");
+		assert.equal    (await IexecRequesterProxyInstance.totalSupply(),                           rlc_deposit.mul(_2).toString(),          "check proxy total supply");
+		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
+	});
+
 });

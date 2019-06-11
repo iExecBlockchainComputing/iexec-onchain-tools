@@ -107,7 +107,7 @@ contract('IexecRequesterProxy - Withdraw From', async (accounts) => {
 		assert.deepEqual(await IexecClerkInstance.viewAccount(IexecRequesterProxyInstance.address), [ rlc_deposit.mul(_2).toString(), "0" ], "check proxy's account on clerk");
 	});
 
-	it("Proxy Withdraw From - failure (not authorized much)", async () => {
+	it("Proxy Withdraw From - failure (not authorized)", async () => {
 		let rlc_before   = await RLCInstance.balanceOf(iexecAdmin);
 		let rlc_withdraw = rlc_deposit.div(web3.utils.toBN(10));
 		let _2           = web3.utils.toBN(2);
