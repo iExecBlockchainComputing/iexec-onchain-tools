@@ -3,9 +3,10 @@ pragma experimental ABIEncoderV2;
 
 import "iexec-doracle-base/contracts/IexecInterface.sol";
 import "iexec-solidity/contracts/ERC20_Token/ERC20.sol";
+import "iexec-solidity/contracts/ERC20_Token/ERC20Detailed.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownable
+contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, ERC20Detailed, Ownable
 {
 	using SafeMath for uint256;
 
@@ -18,7 +19,9 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, Ownabl
 
 	// Use _iexecHubAddr to force use of custom iexechub, leave 0x0 for autodetect
 	constructor(address _iexecHubAddr)
-		public IexecInterface(_iexecHubAddr)
+		public
+		IexecInterface(_iexecHubAddr)
+		ERC20Detailed("proxyRLC", "pRLC", 9)
 	{
 		baseToken = iexecClerk.token();
 	}

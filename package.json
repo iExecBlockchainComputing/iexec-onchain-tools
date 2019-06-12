@@ -22,7 +22,7 @@
     "ethereumjs-utils": "^5.2.5",
     "iexec-doracle-base": "^0.0.4",
     "iexec-poco": "^3.0.29",
-    "iexec-solidity": "^0.0.7",
+    "iexec-solidity": "^0.0.8",
     "multiaddr": "^6.0.6",
     "openzeppelin-solidity": "^2.2.0",
     "openzeppelin-test-helpers": "^0.3.2",
