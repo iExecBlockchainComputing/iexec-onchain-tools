@@ -26,13 +26,19 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, ERC20D
 		baseToken = iexecClerk.token();
 	}
 
+	function viewAccount(address _user)
+		external view returns (IexecODBLibCore.Account memory account)
+	{
+		return IexecODBLibCore.Account(balanceOf(_user), 0);
+	}
+
 	// match orders
 	function matchOrders(
 		IexecODBLibOrders.AppOrder        memory _apporder,
 		IexecODBLibOrders.DatasetOrder    memory _datasetorder,
 		IexecODBLibOrders.WorkerpoolOrder memory _workerpoolorder,
 		IexecODBLibOrders.RequestOrder    memory _requestorder)
-	public returns (bytes32)
+		public returns (bytes32)
 	{
 		// check whitelist
 		require(authorizedApp        == address(0) || checkIdentity(authorizedApp,        _apporder.app,               iexecClerk.GROUPMEMBER_PURPOSE()), "unauthorized-app");
