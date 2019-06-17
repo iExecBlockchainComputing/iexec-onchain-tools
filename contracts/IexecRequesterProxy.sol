@@ -21,7 +21,7 @@ contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, ERC20D
 	constructor(address _iexecHubAddr)
 		public
 		IexecInterface(_iexecHubAddr)
-		ERC20Detailed("proxyRLC", "pRLC", 9)
+		ERC20Detailed("Proxy RLC", "pRLC", 9)
 	{
 		baseToken = iexecClerk.token();
 	}
