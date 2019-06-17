@@ -6,9 +6,9 @@ var AppRegistry         = artifacts.require("iexec-poco/AppRegistry");
 var DatasetRegistry     = artifacts.require("iexec-poco/DatasetRegistry");
 var WorkerpoolRegistry  = artifacts.require("iexec-poco/WorkerpoolRegistry");
 
-var Broker              = artifacts.require("iexec-poco/Broker");
-var SMSDirectory        = artifacts.require("iexec-poco/SMSDirectory");
-var IexecRequesterProxy = artifacts.require("iexec-poco/IexecRequesterProxy");
+var Broker       = artifacts.require("iexec-poco/Broker");
+var SMSDirectory = artifacts.require("iexec-poco/SMSDirectory");
+var CreditProxy  = artifacts.require("iexec-poco/CreditProxy");
 
 module.exports = async function(deployer, network, accounts)
 {
@@ -99,10 +99,10 @@ module.exports = async function(deployer, network, accounts)
 	SMSDirectoryInstance = await SMSDirectory.deployed();
 	console.log("SMSDirectory deployed at address: " + SMSDirectoryInstance.address);
 
-	await deployer.link(IexecODBLibOrders, IexecRequesterProxy);
-	await deployer.deploy(IexecRequesterProxy, IexecHubInstance.address);
-	IexecRequesterProxyInstance = await IexecRequesterProxy.deployed();
-	console.log("IexecRequesterProxy deployed at address: " + IexecRequesterProxyInstance.address);
+	await deployer.link(IexecODBLibOrders, CreditProxy);
+	await deployer.deploy(CreditProxy, IexecHubInstance.address);
+	CreditProxyInstance = await CreditProxy.deployed();
+	console.log("CreditProxy deployed at address: " + CreditProxyInstance.address);
 
 
 

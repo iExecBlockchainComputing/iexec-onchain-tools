@@ -6,7 +6,7 @@ import "iexec-solidity/contracts/ERC20_Token/ERC20.sol";
 import "iexec-solidity/contracts/ERC20_Token/ERC20Detailed.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract IexecRequesterProxy is IexecInterface, SignatureVerifier, ERC20, ERC20Detailed, Ownable
+contract CreditProxy is IexecInterface, SignatureVerifier, ERC20, ERC20Detailed, Ownable
 {
 	using SafeMath for uint256;
 
