@@ -21,7 +21,7 @@ contract CreditProxy is IexecInterface, SignatureVerifier, ERC20, ERC20Detailed,
 	constructor(address _iexecHubAddr)
 		public
 		IexecInterface(_iexecHubAddr)
-		ERC20Detailed("Proxy RLC", "pRLC", 9)
+		ERC20Detailed("Credit RLC", "cRLC", 9)
 	{
 		baseToken = iexecClerk.token();
 	}
