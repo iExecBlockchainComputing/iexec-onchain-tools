@@ -132,7 +132,7 @@ contract CreditProxy is IexecInterface, SignatureVerifier, ERC20, ERC20Detailed,
 		external onlyOwner
 	{
 		require(iexecClerk.viewAccount(address(this)).locked == 0); // Needed to ensure no tokens are burned
-		// don't use withdraw (or force reclaim first)
+		// don't use _withdraw (or force reclaim first)
 		iexecClerk.withdraw(iexecClerk.viewAccount(address(this)).stake);
 		baseToken.transfer(beneficiary, baseToken.balanceOf(address(this)));
 		selfdestruct(beneficiary);
