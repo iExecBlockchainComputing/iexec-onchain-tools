@@ -57,9 +57,9 @@ contract('CounterfactualFactory', async (accounts) => {
 		}).encodeABI();
 
 		const predictedAddress = web3.utils.toChecksumAddress(web3.utils.soliditySha3(
-			{ t: 'bytes1',  v: '0xff' },
-			{ t: 'address', v: factory.address },
-			{ t: 'bytes32', v: salt },
+			{ t: 'bytes1',  v: '0xff'                     },
+			{ t: 'address', v: factory.address            },
+			{ t: 'bytes32', v: salt                       },
 			{ t: 'bytes32', v: web3.utils.keccak256(code) },
 		).slice(26));
 
