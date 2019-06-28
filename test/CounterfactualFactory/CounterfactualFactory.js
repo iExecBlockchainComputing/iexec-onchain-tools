@@ -32,8 +32,6 @@ contract('CounterfactualFactory', async (accounts) => {
 
 	let factory = null;
 
-	const salt = constants.NULL.BYTES32;
-
 	/***************************************************************************
 	 *                        Environment configuration                        *
 	 ***************************************************************************/
@@ -56,6 +54,9 @@ contract('CounterfactualFactory', async (accounts) => {
 			]
 		}).encodeABI();
 
+		const init = "0x";
+		const salt = web3.utils.keccak256(init) || "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+
 		const predictedAddress = web3.utils.toChecksumAddress(web3.utils.soliditySha3(
 			{ t: 'bytes1',  v: '0xff'                     },
 			{ t: 'address', v: factory.address            },
@@ -63,7 +64,7 @@ contract('CounterfactualFactory', async (accounts) => {
 			{ t: 'bytes32', v: web3.utils.keccak256(code) },
 		).slice(26));
 
-		const tx = await factory.createContract(code, salt);
+		const tx = await factory.createContract(code, init);
 		assert.equal(tx.logs[0].args.contractAddress, predictedAddress, "address do not match");
 
 		const app = await App.at(predictedAddress);
@@ -90,11 +91,13 @@ contract('CounterfactualFactory', async (accounts) => {
 			]
 		}).encodeABI();
 
+		const init = "0x";
+
 		// new: ok
-		await factory.createContract(code, salt);
+		await factory.createContract(code, init);
 
 		// duplicate: fail
-		await shouldFail.reverting(factory.createContract(code, salt));
+		await shouldFail.reverting(factory.createContract(code, init));
 	});
 
 });
